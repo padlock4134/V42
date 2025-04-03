@@ -1,0 +1,565 @@
+import supabase from '../supabase.js';
+import { v4 as uuidv4 } from 'uuid';
+
+// Mock recipes for fallback when Supabase is not available
+import { mockRecipes } from '../mockData/recipes.js';
+
+/**
+ * Recipe service to handle all interactions with Supabase
+ */
+const recipeService = {
+  /**
+   * Get all recipes from Supabase
+   * @returns {Promise<Array>} Array of recipes
+   */
+  getAllRecipes: async () => {
+    try {
+      const { data, error } = await supabase
+        .from('recipes')
+        .select('*');
+      
+      if (error) {
+        console.error('Error fetching recipes from Supabase:', error);
+        return mockRecipes; // Fallback to mock data
+      }
+      
+      return data.length > 0 ? data : mockRecipes;
+    } catch (error) {
+      console.error('Error in getAllRecipes:', error);
+      return mockRecipes; // Fallback to mock data
+    }
+  },
+  
+  /**
+   * Get a recipe by ID
+   * @param {string} id Recipe ID
+   * @returns {Promise<Object|null>} Recipe object or null if not found
+   */
+  getRecipeById: async (id) => {
+    try {
+      const { data, error } = await supabase
+        .from('recipes')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (error) {
+        console.error('Error fetching recipe by ID from Supabase:', error);
+        // Fallback to mock data
+        return mockRecipes.find(recipe => recipe.id === id) || null;
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Error in getRecipeById:', error);
+      // Fallback to mock data
+      return mockRecipes.find(recipe => recipe.id === id) || null;
+    }
+  },
+  
+  /**
+   * Match recipes based on ingredients and cookware
+   * @param {Array} ingredients Array of ingredient names
+   * @param {Array} cookware Array of cookware names
+   * @returns {Promise<Array>} Array of matching recipes
+   */
+  matchRecipes: async (ingredients = [], cookware = []) => {
+    try {
+      if (ingredients.length === 0 && cookware.length === 0) {
+        return [];
+      }
+      
+      // Get all recipes and filter them in memory
+      // This is a simplification since Supabase's filtering for JSONB is more complex
+      const { data, error } = await supabase
+        .from('recipes')
+        .select('*');
+      
+      if (error) {
+        console.error('Error fetching recipes from Supabase:', error);
+        // Fallback to mock data
+        return matchRecipesFromMockData(ingredients, cookware);
+      }
+      
+      // Filter recipes based on ingredients and cookware
+      const matchedRecipes = data.filter(recipe => {
+        // Check if recipe contains any of the selected ingredients
+        const hasIngredient = ingredients.length === 0 || ingredients.some(ingredient => {
+          const name = ingredient.name ? ingredient.name.toLowerCase() : ingredient.toLowerCase();
+          const category = ingredient.category || '';
+          const type = ingredient.type || '';
+          const cut = ingredient.cut || '';
+          
+          // Check in all possible ingredient arrays
+          return (
+            // Check in ingredients array (could be string array or object array)
+            (Array.isArray(recipe.ingredients) && recipe.ingredients.some(recipeIngredient => {
+              if (typeof recipeIngredient === 'string') {
+                return recipeIngredient.toLowerCase().includes(name);
+              } else if (recipeIngredient && recipeIngredient.name) {
+                return recipeIngredient.name.toLowerCase().includes(name);
+              }
+              return false;
+            })) ||
+            // Check in protein_tags array
+            (Array.isArray(recipe.protein_tags) && recipe.protein_tags.some(tag => 
+              tag.toLowerCase().includes(name)
+            )) ||
+            // Check in veggie_tags array
+            (Array.isArray(recipe.veggie_tags) && recipe.veggie_tags.some(tag => 
+              tag.toLowerCase().includes(name)
+            )) ||
+            // Check in herb_tags array
+            (Array.isArray(recipe.herb_tags) && recipe.herb_tags.some(tag => 
+              tag.toLowerCase().includes(name)
+            )) ||
+            // Check in detailed tag arrays (three-level tagging)
+            (category === 'protein' && Array.isArray(recipe.protein_category) && recipe.protein_category.includes('protein')) ||
+            (type && category === 'protein' && Array.isArray(recipe.protein_type) && recipe.protein_type.includes(type)) ||
+            (cut && category === 'protein' && Array.isArray(recipe.protein_cut) && recipe.protein_cut.includes(cut)) ||
+            
+            (category === 'veggies' && Array.isArray(recipe.veggie_category) && recipe.veggie_category.includes('veggies')) ||
+            (type && category === 'veggies' && Array.isArray(recipe.veggie_type) && recipe.veggie_type.includes(type)) ||
+            (cut && category === 'veggies' && Array.isArray(recipe.veggie_variety) && recipe.veggie_variety.includes(cut)) ||
+            
+            (category === 'pantry' && Array.isArray(recipe.pantry_category) && recipe.pantry_category.includes('pantry')) ||
+            (type && category === 'pantry' && Array.isArray(recipe.pantry_type) && recipe.pantry_type.includes(type)) ||
+            (cut && category === 'pantry' && Array.isArray(recipe.pantry_variety) && recipe.pantry_variety.includes(cut)) ||
+            
+            (category === 'dairy' && Array.isArray(recipe.dairy_category) && recipe.dairy_category.includes('dairy')) ||
+            (type && category === 'dairy' && Array.isArray(recipe.dairy_type) && recipe.dairy_type.includes(type)) ||
+            (cut && category === 'dairy' && Array.isArray(recipe.dairy_variety) && recipe.dairy_variety.includes(cut)) ||
+            
+            (category === 'fruit' && Array.isArray(recipe.fruit_category) && recipe.fruit_category.includes('fruit')) ||
+            (type && category === 'fruit' && Array.isArray(recipe.fruit_type) && recipe.fruit_type.includes(type)) ||
+            (cut && category === 'fruit' && Array.isArray(recipe.fruit_variety) && recipe.fruit_variety.includes(cut))
+          );
+        });
+        
+        // Check if recipe requires any of the selected cookware
+        const hasCookware = cookware.length === 0 || cookware.some(item => {
+          const name = item.name ? item.name.toLowerCase() : item.toLowerCase();
+          const category = item.category || item.cookware_category || '';
+          const type = item.type || item.cookware_type || '';
+          const variety = item.variety || item.cookware_variety || '';
+          
+          // Check in required_cookware array
+          const basicMatch = Array.isArray(recipe.required_cookware) && recipe.required_cookware.some(recipeCookware => 
+            recipeCookware.toLowerCase().includes(name)
+          );
+          
+          // Check in detailed cookware tag arrays (three-level tagging)
+          const tagMatch = (
+            (category && Array.isArray(recipe.cookware_category) && recipe.cookware_category.includes(category)) ||
+            (type && Array.isArray(recipe.cookware_type) && recipe.cookware_type.includes(type)) ||
+            (variety && Array.isArray(recipe.cookware_variety) && recipe.cookware_variety.includes(variety))
+          );
+          
+          return basicMatch || tagMatch;
+        });
+        
+        return hasIngredient && hasCookware;
+      });
+      
+      // Calculate match scores and sort
+      const recipesWithScores = matchedRecipes.map(recipe => {
+        let matchScore = 0;
+        let matchedIngredients = 0;
+        let matchedCookware = 0;
+        let matchDetails = [];
+        
+        if (ingredients.length > 0) {
+          ingredients.forEach(ing => {
+            const name = ing.name ? ing.name.toLowerCase() : ing.toLowerCase();
+            const category = ing.category || '';
+            const type = ing.type || '';
+            const cut = ing.cut || '';
+            let matched = false;
+            
+            // Check if ingredient is in any of the tag arrays
+            if ((Array.isArray(recipe.ingredients) && recipe.ingredients.some(i => {
+                if (typeof i === 'string') return i.toLowerCase().includes(name);
+                return i && i.name && i.name.toLowerCase().includes(name);
+              })) ||
+              (Array.isArray(recipe.protein_tags) && recipe.protein_tags.some(tag => tag.toLowerCase().includes(name))) ||
+              (Array.isArray(recipe.veggie_tags) && recipe.veggie_tags.some(tag => tag.toLowerCase().includes(name))) ||
+              (Array.isArray(recipe.herb_tags) && recipe.herb_tags.some(tag => tag.toLowerCase().includes(name)))) {
+              matchedIngredients++;
+              matched = true;
+            }
+            
+            // Check in detailed tag arrays (three-level tagging)
+            if (!matched) {
+              if (category === 'protein' && Array.isArray(recipe.protein_category) && recipe.protein_category.includes('protein')) {
+                if (type && Array.isArray(recipe.protein_type) && recipe.protein_type.includes(type)) {
+                  if (cut && Array.isArray(recipe.protein_cut) && recipe.protein_cut.includes(cut)) {
+                    // Perfect match - all three levels
+                    matchedIngredients += 3;
+                    matchDetails.push(`${name} (exact match)`);
+                  } else {
+                    // Good match - category and type
+                    matchedIngredients += 2;
+                    matchDetails.push(`${name} (type match)`);
+                  }
+                } else {
+                  // Basic match - just category
+                  matchedIngredients += 1;
+                  matchDetails.push(`${name} (category match)`);
+                }
+                matched = true;
+              }
+              
+              if (!matched && category === 'veggies' && Array.isArray(recipe.veggie_category) && recipe.veggie_category.includes('veggies')) {
+                if (type && Array.isArray(recipe.veggie_type) && recipe.veggie_type.includes(type)) {
+                  if (cut && Array.isArray(recipe.veggie_variety) && recipe.veggie_variety.includes(cut)) {
+                    matchedIngredients += 3;
+                    matchDetails.push(`${name} (exact match)`);
+                  } else {
+                    matchedIngredients += 2;
+                    matchDetails.push(`${name} (type match)`);
+                  }
+                } else {
+                  matchedIngredients += 1;
+                  matchDetails.push(`${name} (category match)`);
+                }
+                matched = true;
+              }
+              
+              // Similar checks for pantry, dairy, and fruit categories
+              if (!matched && category === 'pantry' && Array.isArray(recipe.pantry_category) && recipe.pantry_category.includes('pantry')) {
+                if (type && Array.isArray(recipe.pantry_type) && recipe.pantry_type.includes(type)) {
+                  if (cut && Array.isArray(recipe.pantry_variety) && recipe.pantry_variety.includes(cut)) {
+                    matchedIngredients += 3;
+                    matchDetails.push(`${name} (exact match)`);
+                  } else {
+                    matchedIngredients += 2;
+                    matchDetails.push(`${name} (type match)`);
+                  }
+                } else {
+                  matchedIngredients += 1;
+                  matchDetails.push(`${name} (category match)`);
+                }
+                matched = true;
+              }
+              
+              if (!matched && category === 'dairy' && Array.isArray(recipe.dairy_category) && recipe.dairy_category.includes('dairy')) {
+                if (type && Array.isArray(recipe.dairy_type) && recipe.dairy_type.includes(type)) {
+                  if (cut && Array.isArray(recipe.dairy_variety) && recipe.dairy_variety.includes(cut)) {
+                    matchedIngredients += 3;
+                    matchDetails.push(`${name} (exact match)`);
+                  } else {
+                    matchedIngredients += 2;
+                    matchDetails.push(`${name} (type match)`);
+                  }
+                } else {
+                  matchedIngredients += 1;
+                  matchDetails.push(`${name} (category match)`);
+                }
+                matched = true;
+              }
+              
+              if (!matched && category === 'fruit' && Array.isArray(recipe.fruit_category) && recipe.fruit_category.includes('fruit')) {
+                if (type && Array.isArray(recipe.fruit_type) && recipe.fruit_type.includes(type)) {
+                  if (cut && Array.isArray(recipe.fruit_variety) && recipe.fruit_variety.includes(cut)) {
+                    matchedIngredients += 3;
+                    matchDetails.push(`${name} (exact match)`);
+                  } else {
+                    matchedIngredients += 2;
+                    matchDetails.push(`${name} (type match)`);
+                  }
+                } else {
+                  matchedIngredients += 1;
+                  matchDetails.push(`${name} (category match)`);
+                }
+              }
+            }
+          });
+        }
+        
+        if (cookware.length > 0) {
+          cookware.forEach(item => {
+            const name = item.name ? item.name.toLowerCase() : item.toLowerCase();
+            const category = item.category || item.cookware_category || '';
+            const type = item.type || item.cookware_type || '';
+            const variety = item.variety || item.cookware_variety || '';
+            let matched = false;
+            
+            // Check if cookware is in the required_cookware array
+            if (Array.isArray(recipe.required_cookware) && recipe.required_cookware.some(c => c.toLowerCase().includes(name))) {
+              matchedCookware++;
+              matchDetails.push(`${name} (cookware match)`);
+              matched = true;
+            }
+            
+            // Check in detailed cookware tag arrays (three-level tagging)
+            if (!matched) {
+              if (category && Array.isArray(recipe.cookware_category) && recipe.cookware_category.includes(category)) {
+                if (type && Array.isArray(recipe.cookware_type) && recipe.cookware_type.includes(type)) {
+                  if (variety && Array.isArray(recipe.cookware_variety) && recipe.cookware_variety.includes(variety)) {
+                    // Perfect match - all three levels
+                    matchedCookware += 3;
+                    matchDetails.push(`${name} (exact cookware match)`);
+                  } else {
+                    // Good match - category and type
+                    matchedCookware += 2;
+                    matchDetails.push(`${name} (cookware type match)`);
+                  }
+                } else {
+                  // Basic match - just category
+                  matchedCookware += 1;
+                  matchDetails.push(`${name} (cookware category match)`);
+                }
+                matched = true;
+              }
+            }
+          });
+          
+          // Calculate cookware match percentage
+          const cookwareScore = cookware.length > 0 ? (matchedCookware / (cookware.length * 3)) * 100 : 0;
+          matchScore += cookwareScore;
+        }
+        
+        // Calculate match score (percentage)
+        const totalItems = (ingredients ? ingredients.length : 0) + (cookware ? cookware.length : 0);
+        const totalMatched = matchedIngredients + matchedCookware;
+        
+        if (totalItems > 0) {
+          matchScore = Math.round((totalMatched / totalItems) * 100);
+        }
+        
+        // Return recipe with match score and details
+        return {
+          ...recipe,
+          matchScore,
+          matchDetails
+        };
+      });
+      
+      // Sort by match score (highest first)
+      recipesWithScores.sort((a, b) => b.matchScore - a.matchScore);
+      
+      return recipesWithScores;
+    } catch (error) {
+      console.error('Error in matchRecipes:', error);
+      // Fallback to mock data
+      return matchRecipesFromMockData(ingredients, cookware);
+    }
+  },
+  
+  /**
+   * Import recipes into Supabase
+   * @param {Array} recipes Array of recipe objects
+   * @returns {Promise<Object>} Result of the import operation
+   */
+  importRecipes: async (recipes) => {
+    try {
+      console.log(`Importing ${recipes.length} recipes to Supabase`);
+      
+      // Process recipes to ensure they have the correct format
+      const processedRecipes = recipes.map(recipe => {
+        // Ensure arrays are properly formatted
+        const ingredients = Array.isArray(recipe.ingredients) ? recipe.ingredients : [];
+        const steps = Array.isArray(recipe.steps) ? recipe.steps : [];
+        const required_cookware = Array.isArray(recipe.required_cookware) ? recipe.required_cookware : [];
+        const protein_tags = Array.isArray(recipe.protein_tags) ? recipe.protein_tags : [];
+        const veggie_tags = Array.isArray(recipe.veggie_tags) ? recipe.veggie_tags : [];
+        const herb_tags = Array.isArray(recipe.herb_tags) ? recipe.herb_tags : [];
+        
+        // Ensure detailed tag arrays are properly formatted
+        const protein_category = Array.isArray(recipe.protein_category) ? recipe.protein_category : [];
+        const protein_type = Array.isArray(recipe.protein_type) ? recipe.protein_type : [];
+        const protein_cut = Array.isArray(recipe.protein_cut) ? recipe.protein_cut : [];
+        
+        const veggie_category = Array.isArray(recipe.veggie_category) ? recipe.veggie_category : [];
+        const veggie_type = Array.isArray(recipe.veggie_type) ? recipe.veggie_type : [];
+        const veggie_variety = Array.isArray(recipe.veggie_variety) ? recipe.veggie_variety : [];
+        
+        const pantry_category = Array.isArray(recipe.pantry_category) ? recipe.pantry_category : [];
+        const pantry_type = Array.isArray(recipe.pantry_type) ? recipe.pantry_type : [];
+        const pantry_variety = Array.isArray(recipe.pantry_variety) ? recipe.pantry_variety : [];
+        
+        const dairy_category = Array.isArray(recipe.dairy_category) ? recipe.dairy_category : [];
+        const dairy_type = Array.isArray(recipe.dairy_type) ? recipe.dairy_type : [];
+        const dairy_variety = Array.isArray(recipe.dairy_variety) ? recipe.dairy_variety : [];
+        
+        const fruit_category = Array.isArray(recipe.fruit_category) ? recipe.fruit_category : [];
+        const fruit_type = Array.isArray(recipe.fruit_type) ? recipe.fruit_type : [];
+        const fruit_variety = Array.isArray(recipe.fruit_variety) ? recipe.fruit_variety : [];
+        
+        const cookware_category = Array.isArray(recipe.cookware_category) ? recipe.cookware_category : [];
+        const cookware_type = Array.isArray(recipe.cookware_type) ? recipe.cookware_type : [];
+        const cookware_variety = Array.isArray(recipe.cookware_variety) ? recipe.cookware_variety : [];
+        
+        // Add timestamps
+        const now = new Date().toISOString();
+        
+        return {
+          name: recipe.name || '',
+          description: recipe.description || '',
+          image_url: recipe.image_url || '',
+          ingredients,
+          steps,
+          cook_time: recipe.cook_time || '',
+          prep_time: recipe.prep_time || '',
+          servings: recipe.servings || '',
+          required_cookware,
+          protein_tags,
+          veggie_tags,
+          herb_tags,
+          cuisine_type: recipe.cuisine_type || '',
+          created_at: recipe.created_at || now,
+          updated_at: recipe.updated_at || now,
+          // Include detailed tag arrays
+          protein_category,
+          protein_type,
+          protein_cut,
+          veggie_category,
+          veggie_type,
+          veggie_variety,
+          pantry_category,
+          pantry_type,
+          pantry_variety,
+          dairy_category,
+          dairy_type,
+          dairy_variety,
+          fruit_category,
+          fruit_type,
+          fruit_variety,
+          cookware_category,
+          cookware_type,
+          cookware_variety
+        };
+      });
+      
+      // Import recipes in batches to avoid rate limiting
+      const batchSize = 20;
+      let successCount = 0;
+      
+      for (let i = 0; i < processedRecipes.length; i += batchSize) {
+        const batch = processedRecipes.slice(i, i + batchSize);
+        
+        const { data, error } = await supabase
+          .from('recipes')
+          .upsert(batch, { onConflict: 'name' });
+        
+        if (error) {
+          console.error(`Error importing batch ${i / batchSize + 1}:`, error);
+        } else {
+          successCount += batch.length;
+          console.log(`Imported batch ${i / batchSize + 1} of ${Math.ceil(processedRecipes.length / batchSize)}`);
+        }
+        
+        // Small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      
+      return { 
+        data: { successCount }, 
+        error: null 
+      };
+    } catch (error) {
+      console.error('Error in importRecipes:', error);
+      return { 
+        data: null, 
+        error: error.message 
+      };
+    }
+  },
+  
+  /**
+   * Helper function to match recipes from mock data
+   * @param {Array} ingredients Array of ingredient names
+   * @param {Array} cookware Array of cookware names
+   * @returns {Array} Array of matching recipes
+   */
+  matchRecipesFromMockData: (ingredients = [], cookware = []) => {
+    const matchedRecipes = mockRecipes.filter(recipe => {
+      // Check if recipe contains any of the selected ingredients
+      const hasIngredient = ingredients.length === 0 || ingredients.some(ingredient => {
+        const name = ingredient.name ? ingredient.name.toLowerCase() : ingredient.toLowerCase();
+        
+        // Check in recipe.ingredients array
+        return recipe.ingredients.some(recipeIngredient => 
+          recipeIngredient.toLowerCase().includes(name)
+        ) ||
+        // Check in protein_tags array
+        recipe.protein_tags.some(tag => 
+          tag.toLowerCase().includes(name)
+        ) ||
+        // Check in veggie_tags array
+        recipe.veggie_tags.some(tag => 
+          tag.toLowerCase().includes(name)
+        ) ||
+        // Check in herb_tags array
+        recipe.herb_tags.some(tag => 
+          tag.toLowerCase().includes(name)
+        );
+      });
+      
+      // Check if recipe requires any of the selected cookware
+      const hasCookware = cookware.length === 0 || cookware.some(item => {
+        const name = item.name ? item.name.toLowerCase() : item.toLowerCase();
+        
+        // Check in recipe.required_cookware array
+        return recipe.required_cookware.some(recipeCookware => 
+          recipeCookware.toLowerCase().includes(name)
+        );
+      });
+      
+      return hasIngredient && hasCookware;
+    });
+    
+    // Calculate match scores and sort
+    const recipesWithScores = matchedRecipes.map(recipe => {
+      let matchScore = 0;
+      let matchedIngredients = 0;
+      let matchedCookware = 0;
+      
+      if (ingredients.length > 0) {
+        ingredients.forEach(ing => {
+          const name = ing.name ? ing.name.toLowerCase() : ing.toLowerCase();
+          
+          // Check if ingredient is in any of the tag arrays
+          if (recipe.ingredients.some(i => i.toLowerCase().includes(name)) ||
+              recipe.protein_tags.some(tag => tag.toLowerCase().includes(name)) ||
+              recipe.veggie_tags.some(tag => tag.toLowerCase().includes(name)) ||
+              recipe.herb_tags.some(tag => tag.toLowerCase().includes(name))) {
+            matchedIngredients++;
+          }
+        });
+      }
+      
+      if (cookware.length > 0) {
+        cookware.forEach(item => {
+          const name = item.name ? item.name.toLowerCase() : item.toLowerCase();
+          
+          // Check if cookware is in required_cookware array
+          if (recipe.required_cookware.some(c => c.toLowerCase().includes(name))) {
+            matchedCookware++;
+          }
+        });
+      }
+      
+      // Calculate match score (percentage)
+      const totalItems = (ingredients ? ingredients.length : 0) + (cookware ? cookware.length : 0);
+      const totalMatched = matchedIngredients + matchedCookware;
+      
+      if (totalItems > 0) {
+        matchScore = Math.round((totalMatched / totalItems) * 100);
+      }
+      
+      // Return recipe with match score
+      return {
+        ...recipe,
+        matchScore
+      };
+    });
+    
+    // Sort by match score (highest first)
+    recipesWithScores.sort((a, b) => b.matchScore - a.matchScore);
+    
+    return recipesWithScores;
+  }
+};
+
+export default recipeService;

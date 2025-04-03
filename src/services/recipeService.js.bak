@@ -1,0 +1,395 @@
+import { v4 as uuidv4 } from 'uuid';
+import mockRecipes from '../mockData/mockRecipes';
+
+/**
+ * Parse CSV data into recipe objects
+ * @param {string} csvData CSV data as a string
+ * @returns {Array} Array of recipe objects
+ */
+const parseRecipesCSV = (csvData) => {
+  try {
+    if (!csvData) {
+      console.error('CSV data is empty or undefined');
+      return [];
+    }
+
+    // Split the CSV data into lines
+    const lines = csvData.split('\n');
+    if (lines.length < 2) {
+      console.error('CSV data has fewer than 2 lines (no header or no data)');
+      return [];
+    }
+
+    // Extract headers
+    const headers = lines[0].split(',').map(header => header.trim());
+    
+    // Process each line
+    const recipes = [];
+    for (let i = 1; i < lines.length; i++) {
+      // Skip empty lines
+      if (!lines[i].trim()) continue;
+      
+      const values = lines[i].split(',');
+      
+      // Skip lines with fewer values than headers
+      if (values.length < headers.length) {
+        console.warn(`Line ${i} has fewer values than headers, skipping`);
+        continue;
+      }
+      
+      // Create a recipe object
+      const recipe = {};
+      for (let j = 0; j < headers.length; j++) {
+        let value = values[j] ? values[j].trim() : '';
+        
+        // Handle special fields
+        if (headers[j] === 'ingredients' || headers[j] === 'steps' || headers[j] === 'required_cookware' || 
+            headers[j] === 'protein_tags' || headers[j] === 'veggie_tags' || headers[j] === 'herb_tags') {
+          try {
+            // Try to parse as JSON
+            if (value.startsWith('[') && value.endsWith(']')) {
+              value = JSON.parse(value);
+            } 
+            // If it's not valid JSON but contains quotes, it might be a partial array
+            else if (value.includes('"')) {
+              // Try to complete the array syntax
+              const fixedValue = `[${value}]`;
+              try {
+                value = JSON.parse(fixedValue);
+              } catch (innerError) {
+                console.warn(`Could not parse ${headers[j]} as JSON array with fix: ${fixedValue}`);
+                value = value.split(',').map(item => item.trim());
+              }
+            } 
+            // Otherwise, split by comma
+            else {
+              value = value.split(',').map(item => item.trim());
+            }
+          } catch (error) {
+            console.warn(`Error parsing ${headers[j]} as JSON: ${error.message}`);
+            value = value.split(',').map(item => item.trim());
+          }
+        }
+        
+        recipe[headers[j]] = value;
+      }
+      
+      // Add the recipe to the array
+      recipes.push(recipe);
+    }
+    
+    console.log(`Successfully parsed ${recipes.length} recipes from CSV data`);
+    return recipes;
+  } catch (error) {
+    console.error('Error parsing CSV data:', error);
+    return [];
+  }
+};
+
+/**
+ * Process recipe data to ensure all required fields are properly formatted
+ * @param {Object} recipe Raw recipe data
+ * @returns {Object} Processed recipe data
+ */
+const processRecipeData = (recipe) => {
+  if (!recipe) return null;
+  
+  // Ensure all arrays are properly formatted
+  const ingredients = Array.isArray(recipe.ingredients) ? recipe.ingredients : [];
+  const steps = Array.isArray(recipe.steps) ? recipe.steps : [];
+  const required_cookware = Array.isArray(recipe.required_cookware) ? recipe.required_cookware : [];
+  
+  // Ensure image_url is valid - use recipe name for image path
+  let image_url = recipe.image_url || '';
+  
+  // If image URL is not valid or missing, construct it based on recipe name
+  if (!image_url || !(image_url.startsWith('http') || image_url.startsWith('/'))) {
+    const recipeName = recipe.name || recipe.title || 'Vegetable Pasta';
+    image_url = `/src/assets/images/${recipeName}.png`;
+  }
+  
+  return {
+    ...recipe,
+    id: recipe.id || `recipe-${uuidv4()}`,
+    name: recipe.name || recipe.title || 'Untitled Recipe',
+    title: recipe.title || recipe.name || 'Untitled Recipe',
+    description: recipe.description || 'A delicious recipe',
+    image_url,
+    ingredients,
+    steps,
+    required_cookware,
+    cook_time: recipe.cook_time || recipe.cookTime || 30,
+    prep_time: recipe.prep_time || recipe.prepTime || 15,
+    servings: recipe.servings || 4,
+    rating: recipe.rating || 4,
+    difficulty: recipe.difficulty || 'Medium',
+    cuisine_type: recipe.cuisine_type || ''
+  };
+};
+
+const recipeService = {
+  getAllRecipes: async () => {
+    try {
+      // In Node.js environment (API server), use file system
+      if (typeof window === 'undefined') {
+        const fs = await import('fs');
+        const path = await import('path');
+        const { fileURLToPath } = await import('url');
+        
+        try {
+          const __filename = fileURLToPath(import.meta.url);
+          const __dirname = path.dirname(__filename);
+          
+          // Try multiple possible paths for the CSV file
+          const possiblePaths = [
+            path.resolve(__dirname, '../../src/assets/csv/recipes_rows.csv'),
+            path.resolve(__dirname, '../assets/csv/recipes_rows.csv'),
+            path.resolve(process.cwd(), 'src/assets/csv/recipes_rows.csv')
+          ];
+          
+          let csvData = null;
+          let loadedPath = null;
+          
+          for (const filePath of possiblePaths) {
+            try {
+              if (fs.existsSync(filePath)) {
+                csvData = fs.readFileSync(filePath, 'utf8');
+                loadedPath = filePath;
+                console.log(`Successfully loaded CSV from ${filePath}, length: ${csvData.length}`);
+                break;
+              }
+            } catch (fsError) {
+              console.warn(`Could not read file at ${filePath}:`, fsError.message);
+            }
+          }
+          
+          if (csvData) {
+            const recipes = parseRecipesCSV(csvData);
+            if (recipes && recipes.length > 0) {
+              console.log(`Successfully loaded ${recipes.length} recipes from CSV file at ${loadedPath}`);
+              return recipes;
+            }
+          }
+        } catch (fsError) {
+          console.error('Error accessing file system:', fsError);
+        }
+        
+        console.warn('Falling back to mock data in Node environment');
+        return mockRecipes.map(recipe => processRecipeData(recipe));
+      }
+      
+      // In browser environment, try multiple approaches to get recipes
+      console.log('Browser environment detected, trying multiple approaches to load recipes');
+      
+      // Try multiple possible paths for the CSV file
+      try {
+        const possiblePaths = [
+          '/src/assets/csv/recipes_rows.csv',
+          '/assets/csv/recipes_rows.csv'
+        ];
+        
+        let csvData = null;
+        let loadedPath = null;
+        
+        for (const path of possiblePaths) {
+          try {
+            const response = await fetch(path);
+            console.log(`CSV fetch response status for ${path}: ${response.status}`);
+            
+            if (response.ok) {
+              csvData = await response.text();
+              loadedPath = path;
+              console.log(`Successfully fetched CSV from ${path}, length: ${csvData.length}`);
+              break;
+            }
+          } catch (fetchError) {
+            console.warn(`Could not fetch CSV from ${path}:`, fetchError.message);
+          }
+        }
+        
+        // If we found valid CSV data, parse it
+        if (csvData && csvData.length > 0) {
+          const recipes = parseRecipesCSV(csvData);
+          console.log(`Parsed recipes: ${recipes ? recipes.length : 0}`);
+          if (recipes && recipes.length > 0) {
+            console.log(`Successfully loaded ${recipes.length} recipes from CSV file at ${loadedPath}`);
+            return recipes;
+          }
+          console.warn('CSV data appears invalid or empty');
+        } else {
+          console.warn('Could not load CSV from any of the attempted paths');
+        }
+      } catch (error) {
+        console.error('Error loading CSV:', error);
+      }
+      
+      // Try fetching from the API server
+      try {
+        const apiResponse = await fetch('/api/recipes');
+        if (apiResponse.ok) {
+          const recipes = await apiResponse.json();
+          if (recipes && recipes.length > 0) {
+            console.log(`Successfully loaded ${recipes.length} recipes from API`);
+            return recipes.map(recipe => processRecipeData(recipe));
+          }
+        }
+      } catch (apiError) {
+        console.error('Error fetching recipes from API:', apiError);
+      }
+      
+      // Fallback to mock data
+      console.warn('Falling back to mock data');
+      return mockRecipes.map(recipe => processRecipeData(recipe));
+    } catch (error) {
+      console.error('Error in getAllRecipes:', error);
+      return mockRecipes.map(recipe => processRecipeData(recipe));
+    }
+  },
+  
+  getRecipeById: async (id) => {
+    try {
+      const allRecipes = await recipeService.getAllRecipes();
+      const recipe = allRecipes.find(recipe => recipe.id === id);
+      return recipe ? processRecipeData(recipe) : null;
+    } catch (error) {
+      console.error('Error in getRecipeById:', error);
+      return null;
+    }
+  },
+  
+  matchRecipes: async (ingredients = [], cookware = []) => {
+    try {
+      // If no ingredients or cookware are provided, return all recipes
+      if ((!ingredients || ingredients.length === 0) && (!cookware || cookware.length === 0)) {
+        console.log('No ingredients or cookware provided, returning all recipes');
+        return await recipeService.getAllRecipes();
+      }
+      
+      const allRecipes = await recipeService.getAllRecipes();
+      
+      // Convert ingredients and cookware to lowercase for case-insensitive matching
+      const normalizedIngredients = ingredients.map(ing => ing.toLowerCase());
+      const normalizedCookware = cookware.map(cw => cw.toLowerCase());
+      
+      // Filter and score recipes based on matching ingredients and cookware
+      const scoredRecipes = allRecipes.map(recipe => {
+        let score = 0;
+        let matchedIngredients = 0;
+        let matchedCookware = 0;
+        
+        // Score based on matching ingredients
+        if (recipe.ingredients && recipe.ingredients.length > 0) {
+          const recipeIngredients = recipe.ingredients.map(ing => {
+            if (typeof ing === 'string') {
+              return ing.toLowerCase();
+            } else if (ing && ing.name) {
+              return ing.name.toLowerCase();
+            }
+            return '';
+          });
+          
+          normalizedIngredients.forEach(userIng => {
+            if (recipeIngredients.some(recipeIng => recipeIng.includes(userIng))) {
+              matchedIngredients++;
+              score += 1;
+            }
+          });
+        }
+        
+        // Score based on matching cookware
+        if (recipe.required_cookware && recipe.required_cookware.length > 0) {
+          const recipeCookware = recipe.required_cookware.map(cw => {
+            if (typeof cw === 'string') {
+              return cw.toLowerCase();
+            } else if (cw && cw.name) {
+              return cw.name.toLowerCase();
+            }
+            return '';
+          });
+          
+          normalizedCookware.forEach(userCw => {
+            if (recipeCookware.some(recipeCw => recipeCw.includes(userCw))) {
+              matchedCookware++;
+              score += 2; // Cookware matches are weighted more heavily
+            }
+          });
+        }
+        
+        return {
+          ...recipe,
+          score,
+          matchedIngredients,
+          matchedCookware
+        };
+      });
+      
+      // Sort by score (descending)
+      scoredRecipes.sort((a, b) => b.score - a.score);
+      
+      // Filter out recipes with no matches if ingredients or cookware were provided
+      const filteredRecipes = scoredRecipes.filter(recipe => {
+        if (normalizedIngredients.length > 0 && normalizedCookware.length > 0) {
+          // If both ingredients and cookware were provided, require at least one match of each
+          return recipe.matchedIngredients > 0 && recipe.matchedCookware > 0;
+        } else if (normalizedIngredients.length > 0) {
+          // If only ingredients were provided, require at least one ingredient match
+          return recipe.matchedIngredients > 0;
+        } else if (normalizedCookware.length > 0) {
+          // If only cookware was provided, require at least one cookware match
+          return recipe.matchedCookware > 0;
+        }
+        return true;
+      });
+      
+      console.log(`Matched ${filteredRecipes.length} recipes based on ${normalizedIngredients.length} ingredients and ${normalizedCookware.length} cookware items`);
+      
+      // Process the recipes to ensure all fields are properly formatted
+      return filteredRecipes.map(recipe => processRecipeData(recipe));
+    } catch (error) {
+      console.error('Error in matchRecipes:', error);
+      return [];
+    }
+  },
+  
+  searchRecipes: async (query) => {
+    try {
+      if (!query || query.trim() === '') {
+        return await recipeService.getAllRecipes();
+      }
+      
+      const allRecipes = await recipeService.getAllRecipes();
+      const normalizedQuery = query.toLowerCase();
+      
+      const matchedRecipes = allRecipes.filter(recipe => {
+        // Check if the query matches the recipe name, description, or ingredients
+        const nameMatch = recipe.name && recipe.name.toLowerCase().includes(normalizedQuery);
+        const titleMatch = recipe.title && recipe.title.toLowerCase().includes(normalizedQuery);
+        const descMatch = recipe.description && recipe.description.toLowerCase().includes(normalizedQuery);
+        
+        // Check if any ingredient matches the query
+        let ingredientMatch = false;
+        if (recipe.ingredients && recipe.ingredients.length > 0) {
+          ingredientMatch = recipe.ingredients.some(ing => {
+            if (typeof ing === 'string') {
+              return ing.toLowerCase().includes(normalizedQuery);
+            } else if (ing && ing.name) {
+              return ing.name.toLowerCase().includes(normalizedQuery);
+            }
+            return false;
+          });
+        }
+        
+        return nameMatch || titleMatch || descMatch || ingredientMatch;
+      });
+      
+      return matchedRecipes.map(recipe => processRecipeData(recipe));
+    } catch (error) {
+      console.error('Error in searchRecipes:', error);
+      return [];
+    }
+  },
+  
+  parseRecipesCSV
+};
+
+export default recipeService;

@@ -1,0 +1,271 @@
+import { createContext, useState, useContext, useEffect } from 'react';
+
+const KitchenContext = createContext();
+
+export const useKitchen = () => useContext(KitchenContext);
+
+export const KitchenProvider = ({ children }) => {
+  const [ingredients, setIngredients] = useState(() => {
+    const savedIngredients = localStorage.getItem('kitchen-ingredients');
+    return savedIngredients ? JSON.parse(savedIngredients) : [];
+  });
+
+  const [cookware, setCookware] = useState(() => {
+    const savedCookware = localStorage.getItem('kitchen-cookware');
+    return savedCookware ? JSON.parse(savedCookware) : [];
+  });
+
+  const [matchedRecipes, setMatchedRecipes] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Save ingredients to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('kitchen-ingredients', JSON.stringify(ingredients));
+  }, [ingredients]);
+
+  // Save cookware to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('kitchen-cookware', JSON.stringify(cookware));
+  }, [cookware]);
+
+  // Add an ingredient to the kitchen
+  const addIngredient = (ingredient) => {
+    // Create a unique ID if one doesn't exist
+    const ingredientItem = {
+      ...ingredient,
+      id: ingredient.id || `${ingredient.category || 'custom'}-${ingredient.type || 'generic'}-${Date.now()}`
+    };
+    
+    // Store the three-level tagging information if available
+    if (ingredient.category) {
+      ingredientItem.ingredient_category = ingredient.category;
+    }
+    
+    if (ingredient.type) {
+      ingredientItem.ingredient_type = ingredient.type;
+    }
+    
+    if (ingredient.cut) {
+      ingredientItem.ingredient_cut = ingredient.cut;
+    }
+    
+    // Check if a similar ingredient already exists (by name)
+    const existingIngredientIndex = ingredients.findIndex(item => 
+      item.name.toLowerCase() === ingredientItem.name.toLowerCase()
+    );
+    
+    if (existingIngredientIndex >= 0) {
+      // Update the quantity of the existing ingredient
+      const updatedIngredients = [...ingredients];
+      updatedIngredients[existingIngredientIndex].quantity += ingredientItem.quantity || 1;
+      setIngredients(updatedIngredients);
+    } else {
+      // Add as a new ingredient
+      setIngredients([...ingredients, ingredientItem]);
+    }
+  };
+
+  // Remove an ingredient from the kitchen
+  const removeIngredient = (index) => {
+    setIngredients(ingredients.filter((_, i) => i !== index));
+  };
+
+  // Update an existing ingredient
+  const updateIngredient = (updatedIngredient) => {
+    setIngredients(ingredients.map(item => 
+      item.id === updatedIngredient.id ? updatedIngredient : item
+    ));
+  };
+
+  // Add cookware to the kitchen
+  const addCookware = (item) => {
+    // Create a unique ID if one doesn't exist
+    const cookwareItem = {
+      ...item,
+      id: item.id || `${item.category || 'custom'}-${item.type || 'generic'}-${Date.now()}`
+    };
+    
+    // Store the three-level tagging information
+    if (item.category) {
+      cookwareItem.cookware_category = item.category;
+    }
+    
+    if (item.type) {
+      cookwareItem.cookware_type = item.type;
+    }
+    
+    if (item.variety) {
+      cookwareItem.cookware_variety = item.variety;
+    }
+    
+    if (!cookware.some(c => c.id === cookwareItem.id)) {
+      setCookware([...cookware, cookwareItem]);
+    }
+  };
+
+  // Remove cookware from the kitchen
+  const removeCookware = (index) => {
+    setCookware(cookware.filter((_, i) => i !== index));
+  };
+
+  // Find recipes that match the current ingredients and cookware
+  const findMatchingRecipes = async () => {
+    setIsLoading(true);
+    
+    try {
+      // Check if we have any ingredients or cookware to match against
+      if (ingredients.length === 0 && cookware.length === 0) {
+        setMatchedRecipes([]);
+        return;
+      }
+      
+      // Prepare the cookware data with three-level tagging
+      const cookwareWithTags = cookware.map(item => ({
+        ...item,
+        cookware_category: item.cookware_category || item.category || '',
+        cookware_type: item.cookware_type || item.type || '',
+        cookware_variety: item.cookware_variety || item.variety || ''
+      }));
+      
+      // Call our API to find matching recipes
+      const response = await fetch('http://localhost:5000/api/recipes/match', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          ingredients, 
+          cookware: cookwareWithTags 
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      // If we got data back from the API, use it
+      if (data && Array.isArray(data)) {
+        setMatchedRecipes(data);
+      } else {
+        // Fallback to mock data if API fails or returns invalid data
+        console.warn('API returned invalid data, using mock recipes instead');
+        
+        const mockRecipes = [
+          {
+            id: 'recipe-1',
+            name: 'Spaghetti Carbonara',
+            ingredients: ['pasta', 'eggs', 'bacon', 'parmesan', 'black pepper'],
+            cookware: ['pot', 'pan'],
+            matchScore: 100,
+            imageUrl: 'https://via.placeholder.com/300',
+            prepTime: 10,
+            cookTime: 20,
+            difficulty: 'Easy'
+          },
+          {
+            id: 'recipe-2',
+            name: 'Chicken Parmesan',
+            ingredients: ['chicken breast', 'breadcrumbs', 'parmesan', 'mozzarella', 'tomato sauce'],
+            cookware: ['baking dish', 'pan'],
+            matchScore: 85,
+            imageUrl: 'https://via.placeholder.com/300',
+            prepTime: 20,
+            cookTime: 30,
+            difficulty: 'Medium'
+          },
+          {
+            id: 'recipe-3',
+            name: 'Vegetable Stir Fry',
+            ingredients: ['bell pepper', 'broccoli', 'carrot', 'soy sauce', 'garlic'],
+            cookware: ['wok', 'knife'],
+            matchScore: 75,
+            imageUrl: 'https://via.placeholder.com/300',
+            prepTime: 15,
+            cookTime: 10,
+            difficulty: 'Easy'
+          }
+        ];
+        
+        setMatchedRecipes(mockRecipes);
+      }
+    } catch (error) {
+      console.error('Error finding matching recipes:', error);
+      
+      // Fallback to mock data if API call fails
+      const mockRecipes = [
+        {
+          id: 'recipe-1',
+          name: 'Spaghetti Carbonara',
+          ingredients: ['pasta', 'eggs', 'bacon', 'parmesan', 'black pepper'],
+          cookware: ['pot', 'pan'],
+          matchScore: 100,
+          imageUrl: 'https://via.placeholder.com/300',
+          prepTime: 10,
+          cookTime: 20,
+          difficulty: 'Easy'
+        },
+        {
+          id: 'recipe-2',
+          name: 'Chicken Parmesan',
+          ingredients: ['chicken breast', 'breadcrumbs', 'parmesan', 'mozzarella', 'tomato sauce'],
+          cookware: ['baking dish', 'pan'],
+          matchScore: 85,
+          imageUrl: 'https://via.placeholder.com/300',
+          prepTime: 20,
+          cookTime: 30,
+          difficulty: 'Medium'
+        },
+        {
+          id: 'recipe-3',
+          name: 'Vegetable Stir Fry',
+          ingredients: ['bell pepper', 'broccoli', 'carrot', 'soy sauce', 'garlic'],
+          cookware: ['wok', 'knife'],
+          matchScore: 75,
+          imageUrl: 'https://via.placeholder.com/300',
+          prepTime: 15,
+          cookTime: 10,
+          difficulty: 'Easy'
+        }
+      ];
+      
+      setMatchedRecipes(mockRecipes);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Clear all ingredients from the kitchen
+  const clearIngredients = () => {
+    setIngredients([]);
+  };
+
+  // Clear all cookware from the kitchen
+  const clearCookware = () => {
+    setCookware([]);
+  };
+
+  const value = {
+    ingredients,
+    cookware,
+    matchedRecipes,
+    isLoading,
+    addIngredient,
+    removeIngredient,
+    updateIngredient,
+    addCookware,
+    removeCookware,
+    findMatchingRecipes,
+    clearIngredients,
+    clearCookware
+  };
+
+  return (
+    <KitchenContext.Provider value={value}>
+      {children}
+    </KitchenContext.Provider>
+  );
+};
+
+export default KitchenContext;

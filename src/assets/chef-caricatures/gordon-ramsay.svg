@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Gordon Ramsay Caricature -->
+  
+  <!-- Background -->
+  <circle cx="100" cy="100" r="95" fill="#f5f0e6"/>
+  
+  <!-- Hair -->
+  <path d="M55 60 C55 40, 145 30, 145 60 L145 70 C145 70, 130 65, 120 75 C110 85, 90 85, 80 75 C70 65, 55 70, 55 70 Z" fill="#f2d585"/>
+  
+  <!-- Face -->
+  <ellipse cx="100" cy="100" rx="45" ry="55" fill="#ffdbac"/>
+  
+  <!-- Forehead wrinkles -->
+  <path d="M70 60 Q100 55 130 60" fill="none" stroke="#cca288" stroke-width="1.5"/>
+  <path d="M70 65 Q100 60 130 65" fill="none" stroke="#cca288" stroke-width="1.5"/>
+  <path d="M70 70 Q100 65 130 70" fill="none" stroke="#cca288" stroke-width="1.5"/>
+  
+  <!-- Eyes -->
+  <path d="M80 85 Q85 80 90 85" fill="none" stroke="#333" stroke-width="2"/>
+  <path d="M110 85 Q115 80 120 85" fill="none" stroke="#333" stroke-width="2"/>
+  <circle cx="85" cy="85" r="3" fill="#333"/>
+  <circle cx="115" cy="85" r="3" fill="#333"/>
+  
+  <!-- Eyebrows - angry expression -->
+  <path d="M75 75 Q85 70 95 80" fill="none" stroke="#f2d585" stroke-width="3"/>
+  <path d="M105 80 Q115 70 125 75" fill="none" stroke="#f2d585" stroke-width="3"/>
+  
+  <!-- Nose -->
+  <path d="M100 90 Q105 105 100 110" fill="none" stroke="#333" stroke-width="2"/>
+  
+  <!-- Mouth - shouting -->
+  <ellipse cx="100" cy="125" rx="15" ry="10" fill="#fff"/>
+  <path d="M85 125 Q100 135 115 125" fill="none" stroke="#333" stroke-width="2"/>
+  
+  <!-- Chef Coat -->
+  <path d="M60 140 L60 180 L140 180 L140 140 Q120 150 100 150 Q80 150 60 140" fill="white" stroke="#333" stroke-width="2"/>
+  
+  <!-- Chef Coat Buttons -->
+  <circle cx="90" cy="155" r="3" fill="#333"/>
+  <circle cx="90" cy="165" r="3" fill="#333"/>
+  <circle cx="90" cy="175" r="3" fill="#333"/>
+  <circle cx="110" cy="155" r="3" fill="#333"/>
+  <circle cx="110" cy="165" r="3" fill="#333"/>
+  <circle cx="110" cy="175" r="3" fill="#333"/>
+  
+  <!-- Name -->
+  <text x="100" y="195" text-anchor="middle" font-family="Arial" font-size="14" font-weight="bold">Gordon Ramsay</text>
+</svg>

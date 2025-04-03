@@ -1,0 +1,55 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('./assets/fonts/OpenDyslexic-Regular.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('./assets/fonts/OpenDyslexic-Bold.otf') format('opentype');
+  font-weight: bold;
+  font-style: normal;
+}
+
+:root {
+  font-family: 'Poppins', sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #333;
+  background-color: #F9F5EB;
+}
+
+@layer components {
+  .retro-card {
+    @apply bg-white rounded-retro shadow-retro border-2 border-gray-800 p-4;
+  }
+  
+  .retro-button {
+    @apply bg-retro-yellow hover:bg-retro-orange text-gray-800 font-bold py-2 px-4 rounded-retro shadow-retro border-2 border-gray-800 transition-all;
+  }
+  
+  .retro-input {
+    @apply bg-white border-2 border-gray-800 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-retro-blue;
+  }
+  
+  .high-contrast {
+    @apply bg-black text-white border-white;
+  }
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+.dyslexic-font {
+  font-family: 'OpenDyslexic', sans-serif;
+}

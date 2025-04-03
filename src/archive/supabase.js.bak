@@ -1,0 +1,60 @@
+import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
+
+// Supabase configuration
+const supabaseUrl = process.env.SUPABASE_URL || '';
+const supabaseKey = process.env.SUPABASE_ANON_KEY || '';
+
+console.log('Supabase URL:', supabaseUrl ? 'Found' : 'Not found');
+console.log('Supabase Key:', supabaseKey ? 'Found' : 'Not found');
+
+// Create a mock Supabase client if credentials are not provided
+let supabase;
+
+if (supabaseUrl && supabaseKey) {
+  // Create Supabase client with real credentials
+  supabase = createClient(supabaseUrl, supabaseKey, {
+    // Add additional configuration for better performance with arrays
+    realtime: {
+      params: {
+        eventsPerSecond: 10
+      }
+    },
+    global: {
+      // Increase timeout for larger data operations
+      fetch: {
+        headers: {},
+        timeout: 30000 // 30 seconds
+      }
+    }
+  });
+  console.log('Supabase client initialized with provided credentials');
+} else {
+  // Create a mock client that always returns empty data
+  console.log('No Supabase credentials provided, using mock client');
+  supabase = {
+    from: () => ({
+      select: () => Promise.resolve({ data: [], error: { message: 'Mock client - no credentials provided' } }),
+      insert: () => Promise.resolve({ data: [], error: { message: 'Mock client - no credentials provided' } }),
+      update: () => Promise.resolve({ data: [], error: { message: 'Mock client - no credentials provided' } }),
+      delete: () => Promise.resolve({ data: [], error: { message: 'Mock client - no credentials provided' } }),
+      upsert: () => Promise.resolve({ data: [], error: { message: 'Mock client - no credentials provided' } }),
+      eq: () => ({
+        single: () => Promise.resolve({ data: null, error: { message: 'Mock client - no credentials provided' } })
+      }),
+      neq: () => Promise.resolve({ data: [], error: { message: 'Mock client - no credentials provided' } }),
+      or: () => Promise.resolve({ data: [], error: { message: 'Mock client - no credentials provided' } }),
+      is: () => Promise.resolve({ data: [], error: { message: 'Mock client - no credentials provided' } }),
+      in: () => Promise.resolve({ data: [], error: { message: 'Mock client - no credentials provided' } }),
+      contains: () => Promise.resolve({ data: [], error: { message: 'Mock client - no credentials provided' } }),
+      containedBy: () => Promise.resolve({ data: [], error: { message: 'Mock client - no credentials provided' } }),
+      overlaps: () => Promise.resolve({ data: [], error: { message: 'Mock client - no credentials provided' } })
+    })
+  };
+}
+
+export { supabase };
+export default supabase;

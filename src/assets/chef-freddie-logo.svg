@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Chef's Hat -->
+  <path d="M55 60 A45 25 0 0 1 145 60 L145 80 L55 80 Z" fill="black"/>
+  
+  <!-- Pink Face -->
+  <circle cx="100" cy="120" r="50" fill="#ffccdd"/>
+  
+  <!-- Eyes -->
+  <circle cx="80" cy="110" r="10" fill="black"/>
+  <circle cx="120" cy="110" r="10" fill="black"/>
+  
+  <!-- Knife -->
+  <path d="M120 110 L150 90 L140 100 L120 110" fill="black"/>
+  
+  <!-- Nose (two small dots) -->
+  <circle cx="95" cy="125" r="3" fill="black"/>
+  <circle cx="105" cy="125" r="3" fill="black"/>
+  
+  <!-- Mouth (diamond shape) -->
+  <rect x="95" y="135" width="10" height="10" transform="rotate(45 100 140)" fill="black"/>
+  
+  <!-- Buttons -->
+  <circle cx="100" cy="155" r="3" fill="black"/>
+  <circle cx="100" cy="165" r="3" fill="black"/>
+  
+  <!-- Chef's Collar -->
+  <path d="M60 180 A50 30 0 0 0 140 180 L140 190 L60 190 Z" fill="none" stroke="#aaaaaa" stroke-width="5"/>
+</svg>
