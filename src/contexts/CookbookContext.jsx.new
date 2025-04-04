@@ -56,56 +56,78 @@ export function CookbookProvider({ children }) {
   // Function to load a recipe from CSV for Recipe of the Week
   const loadRecipeOfWeek = async () => {
     try {
-      // Set Moules Marinières as the Recipe of the Week as requested
-      const moulesMarinieresRecipe = {
-        id: '0a64c676-a9d8-4c93-a6ac-b8509460b794',
-        name: 'Moules Marinières',
-        description: 'Simple yet elegant dish of mussels steamed in white wine with herbs, garlic, and shallots.',
-        imageUrl: '/assets/images/Moules Marinières.png',
-        prepTime: 15,
-        cookTime: 20,
-        difficulty: 'Medium',
-        rating: 5,
+      // Check if we already have a recipe of the week in local storage
+      const storedRecipeJson = localStorage.getItem('porkchop_recipe_of_week');
+      const storedRecipe = storedRecipeJson ? JSON.parse(storedRecipeJson) : null;
+      const storedTimestamp = localStorage.getItem('porkchop_recipe_of_week_timestamp');
+      
+      // If we have a stored recipe and it's less than a week old, use it
+      const now = new Date().getTime();
+      const oneWeek = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+      
+      if (storedRecipe && storedTimestamp && (now - parseInt(storedTimestamp) < oneWeek)) {
+        console.log('Using stored Recipe of the Week (less than a week old)');
+        setRecipeOfWeek(storedRecipe);
+        return true;
+      }
+      
+      // Otherwise, fetch a new recipe from CSV
+      console.log('Fetching new Recipe of the Week from CSV');
+      
+      // Fetch the CSV file
+      const response = await fetch('/src/assets/csv/recipes_rows.csv');
+      const csvText = await response.text();
+      
+      // Parse CSV (simple parsing, assumes well-formed CSV)
+      const rows = csvText.split('\n').filter(row => row.trim());
+      const headers = rows[0].split(',');
+      
+      // Skip header row and get random recipe (excluding empty rows)
+      const dataRows = rows.slice(1).filter(row => row.trim());
+      const randomIndex = Math.floor(Math.random() * dataRows.length);
+      const randomRow = dataRows[randomIndex];
+      
+      // Parse the random row
+      const values = randomRow.split(',');
+      const recipeData = {};
+      
+      // Map CSV values to recipe object
+      headers.forEach((header, index) => {
+        if (header === 'ingredients' || header === 'steps') {
+          try {
+            recipeData[header] = JSON.parse(values[index]);
+          } catch (e) {
+            recipeData[header] = [];
+          }
+        } else if (header === 'rating' || header === 'prep_time' || header === 'cook_time') {
+          recipeData[header] = parseInt(values[index]) || 0;
+        } else {
+          recipeData[header] = values[index];
+        }
+      });
+      
+      // Format the recipe data
+      const newRecipeOfWeek = {
+        id: recipeData.id || `recipe-weekly-${Date.now()}`,
+        name: recipeData.name || recipeData.title || 'Recipe of the Week',
+        description: recipeData.description || 'A delicious featured recipe',
+        imageUrl: recipeData.image_url || recipeData.image || `/src/assets/images/${recipeData.name || 'Recipe'}.png`,
+        prepTime: recipeData.prep_time || 15,
+        cookTime: recipeData.cook_time || 30,
+        difficulty: recipeData.difficulty || 'Medium',
+        rating: recipeData.rating || 5,
         featured: true,
-        ingredients: [
-          '4 lbs fresh mussels, scrubbed and debearded', 
-          '1/4 cup butter', 
-          '4 shallots, finely chopped', 
-          '4 cloves garlic, minced', 
-          '1/4 cup fresh parsley, chopped, plus more for garnish', 
-          '1 cup dry white wine', 
-          '1/4 cup heavy cream (optional)', 
-          '2 bay leaves', 
-          '2 sprigs fresh thyme', 
-          'freshly ground black pepper to taste', 
-          'crusty baguette for serving'
-        ],
-        steps: [
-          'Clean mussels thoroughly under cold running water, scrubbing off any debris and removing beards. Discard any mussels that are open and don\'t close when tapped',
-          'In a large Dutch oven or pot with a lid, melt butter over medium heat',
-          'Add shallots and cook until translucent, about 3 minutes',
-          'Add garlic and cook for 1 minute until fragrant',
-          'Add white wine, bay leaves, and thyme sprigs, bring to a simmer',
-          'Add mussels to the pot and cover with the lid',
-          'Steam for 5-7 minutes, shaking the pot occasionally, until most of the mussels have opened',
-          'Remove from heat and discard any mussels that haven\'t opened',
-          'If using cream, stir it in now',
-          'Remove bay leaves and thyme sprigs',
-          'Stir in fresh parsley and season with freshly ground black pepper',
-          'Transfer mussels with their broth to serving bowls',
-          'Garnish with additional parsley',
-          'Serve immediately with crusty baguette for dipping in the flavorful broth'
-        ]
+        ingredients: recipeData.ingredients || [],
+        steps: recipeData.steps || []
       };
       
       // Set the recipe of the week
-      setRecipeOfWeek(moulesMarinieresRecipe);
+      setRecipeOfWeek(newRecipeOfWeek);
       
       // Save to local storage
-      const now = new Date().getTime();
-      localStorage.setItem('porkchop_recipe_of_week', JSON.stringify(moulesMarinieresRecipe));
+      localStorage.setItem('porkchop_recipe_of_week', JSON.stringify(newRecipeOfWeek));
       localStorage.setItem('porkchop_recipe_of_week_timestamp', now.toString());
-      console.log('Saved Moules Marinières as Recipe of the Week to local storage');
+      console.log('Saved new Recipe of the Week to local storage:', newRecipeOfWeek);
       
       return true;
     } catch (error) {

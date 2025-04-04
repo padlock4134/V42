@@ -19,6 +19,8 @@ const Header = () => {
   const [showMobileNav, setShowMobileNav] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  
+  // We'll use a simpler approach to refresh the avatar
 
   const handleLogout = () => {
     logout();
@@ -36,18 +38,9 @@ const Header = () => {
   return (
     <header className="fixed top-0 left-0 right-0 z-40 bg-retro-cream border-b-4 border-retro-red py-4 shadow-md">
       <div className="container mx-auto px-4 flex flex-wrap justify-between items-center">
-        {/* Logo and App Name */}
+        {/* App Name */}
         <div className="flex items-center">
           <Link to="/dashboard" className="flex items-center">
-            <img 
-              src="/src/assets/logo.png" 
-              alt="PorkChop Logo" 
-              className="h-12 w-12 mr-3"
-              onError={(e) => {
-                e.target.onerror = null;
-                e.target.src = 'https://via.placeholder.com/48';
-              }}
-            />
             <h1 className="font-retro text-2xl font-bold text-gray-800">PorkChop</h1>
           </Link>
         </div>

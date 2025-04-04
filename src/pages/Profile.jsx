@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useAccessibility } from '../contexts/AccessibilityContext';
 import Header from '../components/Header';
 import ChefFreddie from '../components/ChefFreddie';
+import defaultAvatar from '../assets/images/default-avatar.svg';
 
 const Profile = () => {
   const { currentUser, chefLevel, chefTitle, updateProfile } = useAuth();
@@ -17,6 +18,8 @@ const Profile = () => {
     cuisinePreferences: [],
     cookingExperience: 'beginner'
   });
+  
+  const [avatarPreview, setAvatarPreview] = useState(null);
   
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -35,11 +38,38 @@ const Profile = () => {
         cookingExperience: currentUser.cookingExperience || 'beginner'
       });
     }
+    
+    // Clean up any object URLs when component unmounts
+    return () => {
+      if (avatarPreview) {
+        URL.revokeObjectURL(avatarPreview);
+      }
+    };
   }, [currentUser]);
   
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    const { name, value, type, files } = e.target;
+    
+    if (type === 'file') {
+      if (files && files[0]) {
+        const file = files[0];
+        const reader = new FileReader();
+        
+        reader.onload = (event) => {
+          // This creates a persistent data URL that can be stored in localStorage
+          const dataUrl = event.target.result;
+          setAvatarPreview(dataUrl);
+          
+          // Store the data URL in the form data
+          setFormData(prev => ({ ...prev, avatar: dataUrl }));
+        };
+        
+        // Read the file as a data URL
+        reader.readAsDataURL(file);
+      }
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
   };
   
   const handleDietaryPreferenceChange = (preference) => {
@@ -88,14 +118,27 @@ const Profile = () => {
       // For now, we'll just simulate success
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Update profile in auth context
-      updateProfile(formData);
+      // Create updated profile data with the new avatar if available
+      const updatedData = {
+        ...formData
+      };
       
-      setIsEditing(false);
-      setMessage({ 
-        type: 'success', 
-        text: 'Profile updated successfully!' 
-      });
+      // Update profile in auth context
+      const result = updateProfile(updatedData);
+      
+      // Force a refresh of the user data in localStorage to ensure it's available immediately
+      if (result && result.success) {
+        // Reload the page to ensure all components pick up the new avatar
+        // This is a simple but effective way to ensure the header avatar updates
+        window.location.reload();
+      } else {
+        // Exit edit mode
+        setIsEditing(false);
+        setMessage({ 
+          type: 'success', 
+          text: 'Profile updated successfully!' 
+        });
+      }
     } catch (error) {
       setMessage({ 
         type: 'error', 
@@ -103,6 +146,8 @@ const Profile = () => {
       });
     } finally {
       setIsSaving(false);
+      // No need to revoke object URLs since we're using data URLs
+      setAvatarPreview(null);
     }
   };
   
@@ -156,12 +201,27 @@ const Profile = () => {
             {/* Left Column - Avatar and Stats */}
             <div className="md:col-span-1">
               <div className="flex flex-col items-center">
-                <div className="w-40 h-40 rounded-full border-4 border-gray-800 overflow-hidden mb-4">
+                <div className="w-40 h-40 rounded-full border-4 border-gray-800 overflow-hidden mb-4 relative group">
                   <img 
-                    src={currentUser?.avatar || 'https://via.placeholder.com/150'} 
+                    src={isEditing && avatarPreview ? avatarPreview : (currentUser?.avatar || defaultAvatar)} 
                     alt="Profile Avatar" 
                     className="w-full h-full object-cover"
                   />
+                  {isEditing && (
+                    <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <label htmlFor="avatar-upload" className="cursor-pointer bg-retro-yellow text-gray-800 px-3 py-1 rounded-retro border-2 border-gray-800 font-bold text-sm hover:bg-yellow-300 transition-colors">
+                        Change Photo
+                        <input 
+                          id="avatar-upload"
+                          type="file" 
+                          name="avatar"
+                          accept="image/*"
+                          className="hidden" 
+                          onChange={handleChange}
+                        />
+                      </label>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="bg-retro-yellow px-4 py-2 rounded-retro border-2 border-gray-800 text-center mb-4">
@@ -244,21 +304,7 @@ const Profile = () => {
                   </div>
                 </div>
                 
-                <div className="mb-6">
-                  <label htmlFor="avatar" className="block text-sm font-medium text-gray-700 mb-1">
-                    Avatar URL
-                  </label>
-                  <input
-                    id="avatar"
-                    name="avatar"
-                    type="text"
-                    value={formData.avatar}
-                    onChange={handleChange}
-                    disabled={!isEditing}
-                    className="retro-input w-full"
-                    placeholder="https://example.com/your-avatar.jpg"
-                  />
-                </div>
+                {/* Profile picture is now only editable through the avatar section */}
                 
                 <div className="mb-6">
                   <label htmlFor="bio" className="block text-sm font-medium text-gray-700 mb-1">

@@ -97,28 +97,28 @@ const Marketplace = () => {
             <div className="grid grid-cols-2 gap-4">
               <div className="aspect-square rounded-retro overflow-hidden border-2 border-gray-800">
                 <img 
-                  src="https://via.placeholder.com/300" 
+                  src="https://images.unsplash.com/photo-1603360946369-dc9bb6258143?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&q=80" 
                   alt="Local butcher shop" 
                   className="w-full h-full object-cover"
                 />
               </div>
               <div className="aspect-square rounded-retro overflow-hidden border-2 border-gray-800">
                 <img 
-                  src="https://via.placeholder.com/300" 
+                  src="https://images.unsplash.com/photo-1488459716781-31db52582fe9?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&q=80" 
                   alt="Farmers market" 
                   className="w-full h-full object-cover"
                 />
               </div>
               <div className="aspect-square rounded-retro overflow-hidden border-2 border-gray-800">
                 <img 
-                  src="https://via.placeholder.com/300" 
+                  src="https://images.unsplash.com/photo-1452195100486-9cc805987862?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&q=80" 
                   alt="Artisan cheese shop" 
                   className="w-full h-full object-cover"
                 />
               </div>
               <div className="aspect-square rounded-retro overflow-hidden border-2 border-gray-800">
                 <img 
-                  src="https://via.placeholder.com/300" 
+                  src="https://images.unsplash.com/photo-1498654896293-37aacf113fd9?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&q=80" 
                   alt="Fish market" 
                   className="w-full h-full object-cover"
                 />

@@ -196,23 +196,14 @@ const Kitchen = () => {
         { id: 'cream', name: 'Cream', icon: '🍦' },
         { id: 'eggs', name: 'Eggs', icon: '🥚' }
       ],
-      fruit: {
-        citrus: [
-          { id: 'lemon', name: 'Lemon', icon: '🍋' },
-          { id: 'lime', name: 'Lime', icon: '🍋' },
-          { id: 'orange', name: 'Orange', icon: '🍊' }
-        ],
-        tropical: [
-          { id: 'pineapple', name: 'Pineapple', icon: '🍍' },
-          { id: 'mango', name: 'Mango', icon: '🥭' },
-          { id: 'banana', name: 'Banana', icon: '🍌' }
-        ],
-        berries: [
-          { id: 'strawberry', name: 'Strawberry', icon: '🍓' },
-          { id: 'blueberry', name: 'Blueberry', icon: '🫐' },
-          { id: 'raspberry', name: 'Raspberry', icon: '🍓' }
-        ]
-      }
+      fruit: [
+        { id: 'apple', name: 'Apple', icon: '🍎' },
+        { id: 'banana', name: 'Banana', icon: '🍌' },
+        { id: 'orange', name: 'Orange', icon: '🍊' },
+        { id: 'berries', name: 'Berries', icon: '🍓' },
+        { id: 'tropical', name: 'Tropical', icon: '🍍' },
+        { id: 'stone', name: 'Stone Fruit', icon: '🍑' }
+      ]
     },
     cuts: {
       beef: [
@@ -453,7 +444,7 @@ const Kitchen = () => {
       veggies: ['leafy', 'root', 'squash', 'peppers', 'allium', 'other'],
       pantry: ['grains', 'pasta', 'beans', 'nuts', 'spices', 'sauces'],
       dairy: ['milk', 'cheese', 'yogurt', 'butter', 'cream', 'eggs'],
-      fruit: ['berries', 'citrus', 'tropical', 'pome', 'stone', 'melons']
+      fruit: ['apple', 'banana', 'orange', 'berries', 'tropical', 'stone']
     }
   };
 
